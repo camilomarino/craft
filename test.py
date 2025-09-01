@@ -173,6 +173,7 @@ if __name__ == '__main__':
     cv2.imwrite(mask_file, score_text)
 
     # Save result with bboxes - ensure directory exists
+    print(result_folder)
     if not os.path.exists(result_folder):
         os.makedirs(result_folder)
     
