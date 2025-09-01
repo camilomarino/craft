@@ -150,16 +150,25 @@ if __name__ == '__main__':
             refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
 
         refine_net.eval()
-        args.poly = True
+        # args.poly = True
 
     t = time.time()
+    total_inference_time = 0
 
     # load data
     for k, image_path in enumerate(image_list):
-        print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
-
+        
+        # Measure only inference time
+        inference_start = time.time()
         bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
+        inference_time = time.time() - inference_start
+        total_inference_time += inference_time
+        
+        avg_inference_time = total_inference_time / (k + 1)
+        
+        print("Image {:d}/{:d} | Total inference: {:.2f}s | Avg per image: {:.2f}s".format(
+            k+1, len(image_list), total_inference_time, avg_inference_time), end='\r')
 
         # save score text
         filename, file_ext = os.path.splitext(os.path.basename(image_path))
@@ -168,4 +177,4 @@ if __name__ == '__main__':
 
         file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
-    print("elapsed time : {}s".format(time.time() - t))
+    print("\nTotal inference time: {:.2f}s | Average per image: {:.2f}s".format(total_inference_time, total_inference_time / len(image_list)))
