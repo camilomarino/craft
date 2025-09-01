@@ -58,9 +58,9 @@ parser.add_argument('--refine', default=False, action='store_true', help='enable
 
 args = parser.parse_args()
 
-# Get script directory for saving results and loading model
+# Get script directory for loading models, but save results in current working directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
-result_folder = script_dir
+result_folder = os.getcwd()  # Current working directory where script is executed
 
 # Set model paths in the same directory as the script
 trained_model_path = os.path.join(script_dir, 'craft_mlt_25k.pth')
