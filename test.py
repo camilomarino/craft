@@ -171,6 +171,7 @@ if __name__ == '__main__':
     filename, file_ext = os.path.splitext(os.path.basename(image_path))
     mask_file = os.path.join(result_folder, "res_" + filename + '_mask.png')
     cv2.imwrite(mask_file, score_text)
+    print("Mask file saved: {}".format(mask_file))
 
     # Save result with bboxes - ensure directory exists
     print(result_folder)
