@@ -1,6 +1,8 @@
 """  
-Copyright (c) 2019-present NAVER Corp.
-MIT License
+Copyright (c) 2019-present NAVER Corp.parser = argparse.ArgumentParser(description='CRAFT Text Detection')
+parser.add_argument('--text_threshold', default=0.7, type=float, help='text confidence threshold')
+parser.add_argument('--low_text', default=0.4, type=float, help='text low-bound score')
+parser.add_argument('--link_threshold', default=0.4, type=float, help='link confidence threshold')License
 """
 
 # -*- coding: utf-8 -*-
@@ -43,7 +45,6 @@ def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
 parser = argparse.ArgumentParser(description='CRAFT Text Detection')
-parser.add_argument('--trained_model', default='weights/craft_mlt_25k.pth', type=str, help='pretrained model')
 parser.add_argument('--text_threshold', default=0.7, type=float, help='text confidence threshold')
 parser.add_argument('--low_text', default=0.4, type=float, help='text low-bound score')
 parser.add_argument('--link_threshold', default=0.4, type=float, help='link confidence threshold')
@@ -54,13 +55,16 @@ parser.add_argument('--poly', default=False, action='store_true', help='enable p
 parser.add_argument('--show_time', default=False, action='store_true', help='show processing time')
 parser.add_argument('--test_image', default='test_image.jpg', type=str, help='path to input image')
 parser.add_argument('--refine', default=False, action='store_true', help='enable link refiner')
-parser.add_argument('--refiner_model', default='weights/craft_refiner_CTW1500.pth', type=str, help='pretrained refiner model')
 
 args = parser.parse_args()
 
-# Get script directory for saving results
+# Get script directory for saving results and loading model
 script_dir = os.path.dirname(os.path.abspath(__file__))
 result_folder = script_dir
+
+# Set model paths in the same directory as the script
+trained_model_path = os.path.join(script_dir, 'craft_mlt_25k.pth')
+refiner_model_path = os.path.join(script_dir, 'craft_refiner_CTW1500.pth')
 
 def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
@@ -119,11 +123,11 @@ if __name__ == '__main__':
     # load net
     net = CRAFT()     # initialize
 
-    print('Loading weights from checkpoint (' + args.trained_model + ')')
+    print('Loading weights from checkpoint (' + trained_model_path + ')')
     if args.cuda:
-        net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
+        net.load_state_dict(copyStateDict(torch.load(trained_model_path)))
     else:
-        net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
+        net.load_state_dict(copyStateDict(torch.load(trained_model_path, map_location='cpu')))
 
     if args.cuda:
         net = net.cuda()
@@ -137,13 +141,13 @@ if __name__ == '__main__':
     if args.refine:
         from refinenet import RefineNet
         refine_net = RefineNet()
-        print('Loading weights of refiner from checkpoint (' + args.refiner_model + ')')
+        print('Loading weights of refiner from checkpoint (' + refiner_model_path + ')')
         if args.cuda:
-            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model)))
+            refine_net.load_state_dict(copyStateDict(torch.load(refiner_model_path)))
             refine_net = refine_net.cuda()
             refine_net = torch.nn.DataParallel(refine_net)
         else:
-            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
+            refine_net.load_state_dict(copyStateDict(torch.load(refiner_model_path, map_location='cpu')))
 
         refine_net.eval()
         # args.poly = True
