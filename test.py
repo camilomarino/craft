@@ -52,19 +52,15 @@ parser.add_argument('--canvas_size', default=1280, type=int, help='image size fo
 parser.add_argument('--mag_ratio', default=1.5, type=float, help='image magnification ratio')
 parser.add_argument('--poly', default=False, action='store_true', help='enable polygon type')
 parser.add_argument('--show_time', default=False, action='store_true', help='show processing time')
-parser.add_argument('--test_folder', default='/data/', type=str, help='folder path to input images')
+parser.add_argument('--test_image', default='test_image.jpg', type=str, help='path to input image')
 parser.add_argument('--refine', default=False, action='store_true', help='enable link refiner')
 parser.add_argument('--refiner_model', default='weights/craft_refiner_CTW1500.pth', type=str, help='pretrained refiner model')
 
 args = parser.parse_args()
 
-
-""" For test images in a folder """
-image_list, _, _ = file_utils.get_files(args.test_folder)
-
-result_folder = './result/'
-if not os.path.isdir(result_folder):
-    os.mkdir(result_folder)
+# Get script directory for saving results
+script_dir = os.path.dirname(os.path.abspath(__file__))
+result_folder = script_dir
 
 def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
@@ -153,28 +149,36 @@ if __name__ == '__main__':
         # args.poly = True
 
     t = time.time()
-    total_inference_time = 0
 
-    # load data
-    for k, image_path in enumerate(image_list):
-        image = imgproc.loadImage(image_path)
-        
-        # Measure only inference time
-        inference_start = time.time()
-        bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
-        inference_time = time.time() - inference_start
-        total_inference_time += inference_time
-        
-        avg_inference_time = total_inference_time / (k + 1)
-        
-        print("Image {:d}/{:d} | Total inference: {:.2f}s | Avg per image: {:.2f}s".format(
-            k+1, len(image_list), total_inference_time, avg_inference_time), end='\r')
+    # Process single image
+    image_path = args.test_image
+    print("Processing image: {}".format(os.path.basename(image_path)))
+    
+    image = imgproc.loadImage(image_path)
+    
+    # Measure inference time
+    inference_start = time.time()
+    bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
+    inference_time = time.time() - inference_start
+    
+    print("Inference time: {:.2f}s".format(inference_time))
 
-        # save score text
-        filename, file_ext = os.path.splitext(os.path.basename(image_path))
-        mask_file = result_folder + "/res_" + filename + '_mask.jpg'
-        cv2.imwrite(mask_file, score_text)
+    # save score text
+    filename, file_ext = os.path.splitext(os.path.basename(image_path))
+    mask_file = os.path.join(result_folder, "res_" + filename + '_mask.png')
+    cv2.imwrite(mask_file, score_text)
 
-        file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+    # Save result with bboxes - ensure directory exists
+    if not os.path.exists(result_folder):
+        os.makedirs(result_folder)
+    
+    file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+    
+    # Check if the result image was created
+    result_img_file = os.path.join(result_folder, "res_" + filename + '.png')
+    if os.path.exists(result_img_file):
+        print("Result image with bboxes saved: {}".format(result_img_file))
+    else:
+        print("Warning: Result image with bboxes was not created!")
 
-    print("\nTotal inference time: {:.2f}s | Average per image: {:.2f}s".format(total_inference_time, total_inference_time / len(image_list)))
+    print("Results saved in: {}".format(result_folder))
