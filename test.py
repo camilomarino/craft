@@ -69,6 +69,9 @@ refiner_model_path = os.path.join(script_dir, 'craft_refiner_CTW1500.pth')
 def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
 
+    # Get original image dimensions
+    original_height, original_width = image.shape[:2]
+
     # resize
     img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, args.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=args.mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
@@ -108,14 +111,16 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
 
     t1 = time.time() - t1
 
-    # render results (optional)
-    render_img = score_text.copy()
-    render_img = np.hstack((render_img, score_link))
-    ret_score_text = imgproc.cvt2HeatmapImg(render_img)
+    # Convert individual heatmaps and resize to original size
+    score_text_heatmap = imgproc.cvt2HeatmapImg(score_text)
+    score_link_heatmap = imgproc.cvt2HeatmapImg(score_link)
+    
+    score_text_resized = cv2.resize(score_text_heatmap, (original_width, original_height))
+    score_link_resized = cv2.resize(score_link_heatmap, (original_width, original_height))
 
     if args.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
-    return boxes, polys, ret_score_text
+    return boxes, polys, score_text_resized, score_link_resized
 
 
 
@@ -162,16 +167,22 @@ if __name__ == '__main__':
     
     # Measure inference time
     inference_start = time.time()
-    bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
+    bboxes, polys, score_text_heatmap, score_link_heatmap = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
     inference_time = time.time() - inference_start
     
     print("Inference time: {:.2f}s".format(inference_time))
 
-    # save score text
+    # Save individual heatmaps
     filename, file_ext = os.path.splitext(os.path.basename(image_path))
-    mask_file = os.path.join(result_folder, "res_" + filename + '_mask.png')
-    cv2.imwrite(mask_file, score_text)
-    print("Mask file saved: {}".format(mask_file))
+    
+    text_heatmap_file = os.path.join(result_folder, "res_" + filename + '_1.png')
+    link_heatmap_file = os.path.join(result_folder, "res_" + filename + '_2.png')
+    
+    cv2.imwrite(text_heatmap_file, score_text_heatmap)
+    cv2.imwrite(link_heatmap_file, score_link_heatmap)
+    
+    print("Text heatmap saved: {}".format(text_heatmap_file))
+    print("Link heatmap saved: {}".format(link_heatmap_file))
 
     # Save result with bboxes - ensure directory exists
     print(result_folder)
